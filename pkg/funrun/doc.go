@@ -1,0 +1,2 @@
+// Package funrun
+package funrun
