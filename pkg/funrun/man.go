@@ -2,9 +2,12 @@ package funrun
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 )
 
 type Manager struct {
@@ -66,10 +69,27 @@ func (m *Manager) createCmds() []*Command {
 	return cmds
 }
 
+func (m *Manager) Shutdown() {
+	m.Cancel()
+}
+
 func (m *Manager) Run(ctx context.Context) error {
 	// Create the parent context
 	ctx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	done := make(chan bool, 1)
+	go func() {
+		select {
+		case <-sigs:
+			fmt.Fprintln(m.wout, "Received signal, shutting down...")
+			cancel()
+		case <-ctx.Done():
+		}
+		done <- true
+	}()
 
 	// Create the commands
 	m.cmds = m.createCmds()
@@ -86,6 +106,10 @@ func (m *Manager) Run(ctx context.Context) error {
 
 	// Wait for the commands to finish
 	wg.Wait()
+
+	// Wait for the context to finish
+	cancel()
+	<-done
 
 	// Return the error
 	return m.Error()
