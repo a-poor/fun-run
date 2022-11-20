@@ -17,11 +17,11 @@ type Manager struct {
 }
 
 func NewManager(conf *Conf) *Manager {
-	m := &Manager{
+	return &Manager{
 		conf: conf,
+		wout: &SyncWriter{Writer: os.Stdout},
+		werr: &SyncWriter{Writer: os.Stderr},
 	}
-	m.SetOutputs(os.Stdout, os.Stderr)
-	return m
 }
 
 func (m *Manager) SetOutputs(wout, werr io.Writer) {
@@ -40,7 +40,7 @@ func (m *Manager) createCmds() []*Command {
 	cmds := make([]*Command, len(m.conf.Procs))
 	for i, proc := range m.conf.Procs {
 		// Create the command...
-		cmd := NewCommand(&proc)
+		cmd := NewCommand(proc)
 
 		// Set the outputs...
 		wout := NewPrefixWriter(
@@ -73,14 +73,6 @@ func (m *Manager) Run(ctx context.Context) error {
 
 	// Create the commands
 	m.cmds = m.createCmds()
-
-	// Get the max name length...
-	var l int
-	for _, cmd := range m.cmds {
-		if n := len(cmd.Name()); n > l {
-			l = n
-		}
-	}
 
 	// Run the commands
 	var wg sync.WaitGroup

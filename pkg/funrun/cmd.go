@@ -2,7 +2,6 @@ package funrun
 
 import (
 	"context"
-	"io"
 	"os/exec"
 	"sync"
 )
@@ -19,13 +18,13 @@ const (
 )
 
 type Command struct {
-	conf     *ProcConf          // The configuration for this command
-	cmd      *exec.Cmd          // The command object
-	err      error              // The error returned by the command
-	status   CmdStatus          // The current status of the command
-	cancel   context.CancelFunc // The cancel function for the command context
-	writeOut io.Writer
-	writeErr io.Writer
+	conf   *ProcConf          // The configuration for this command
+	cmd    *exec.Cmd          // The command object
+	err    error              // The error returned by the command
+	status CmdStatus          // The current status of the command
+	cancel context.CancelFunc // The cancel function for the command context
+	wout   *PrefixWriter
+	werr   *PrefixWriter
 	sync.RWMutex
 }
 
@@ -39,11 +38,11 @@ func (c *Command) Name() string {
 	return c.conf.Name
 }
 
-func (c *Command) SetOutputs(wout, werr io.Writer) {
+func (c *Command) SetOutputs(wout, werr *PrefixWriter) {
 	c.Lock()
 	defer c.Unlock()
-	c.writeOut = wout
-	c.writeErr = werr
+	c.wout = wout
+	c.werr = werr
 }
 
 func (c *Command) createCmd(ctx context.Context) *exec.Cmd {
@@ -60,8 +59,8 @@ func (c *Command) createCmd(ctx context.Context) *exec.Cmd {
 	cmd.Env = append(cmd.Env, c.conf.Envs...)
 
 	// Set the outputs
-	cmd.Stdout = c.writeOut
-	cmd.Stderr = c.writeErr
+	cmd.Stdout = c.wout
+	cmd.Stderr = c.werr
 
 	// Return the command
 	return cmd
@@ -97,6 +96,8 @@ runloop:
 			break runloop
 
 		default:
+			c.wout.Logf("Starting command...\n")
+
 			// Start the command
 			c.setStatus(CmdRunning)
 			err := c.cmd.Start()
@@ -105,8 +106,12 @@ runloop:
 				c.setStatus(CmdFailed)
 				c.err = err
 
+				// Log the error
+				c.wout.Logf("Error starting command: %s\n", err)
+
 				// Should we restart?
 				if c.conf.Restart == RestartOnFail || c.conf.Restart == RestartAlways {
+					c.wout.Logf("Restarting command\n")
 					continue runloop
 				}
 
@@ -125,11 +130,13 @@ runloop:
 			}
 
 			// Should we restart?
-			if c.conf.Restart == RestartOnFail || c.conf.Restart == RestartAlways {
+			if c.conf.Restart == RestartAlways || (c.conf.Restart == RestartOnFail && c.err != nil) {
+				c.wout.Logf("Restarting command\n")
 				continue runloop
 			}
 
 			// Otherwise, break out of the loop
+			c.wout.Logf("Command finished\n")
 			break runloop
 		}
 	}

@@ -21,7 +21,9 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/a-poor/fun-run/cmd"
+import (
+	"github.com/a-poor/fun-run/cmd"
+)
 
 func main() {
 	cmd.Execute()
