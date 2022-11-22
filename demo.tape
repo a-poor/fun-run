@@ -45,40 +45,55 @@
 #   Show                            Show the subsequent commands in the output
 
 Output demo.gif
-Output demo.mp4
 
-Require fun-run
-
-Set FontSize 32
+Set FontSize 18
 Set Width 1200
 Set Height 600
-Set LoopOffset 50%
 
-Type "echo 'Welcome to fun-run!'" Sleep 500ms Enter
+Ctrl+l
+Type "# Welcome to fun-run!" Sleep 500ms Enter
 
 Sleep 5s
 
 Type "fun-run --version" Sleep 500ms Enter
 
-Sleep 2s
+Sleep 3s
 
-Type "fun-run --help" Sleep 500ms  Enter
+Ctrl+l
+Type "# Let's create a new config file..." Sleep 500ms Enter
+
+Sleep 1s
+
+Type "fun-run init" Sleep 500ms Enter
+
+Sleep 1s
+
+Ctrl+l
+Type "# And then examine the file..." Sleep 500ms Enter
+
+Sleep 1s
+
+Type "less fun-run.yaml" Sleep 500ms Enter
 
 Sleep 5s
 
-Type "fun-run init # Let's create a new config file..." Sleep 500ms Enter
+Type "q" Sleep 500ms Enter
 
-Sleep 500ms
+Ctrl+l
+Type "# Let's validate the file..." Sleep 500ms Enter
 
-Type "cat fun-run.yaml # And then examine the file..." Sleep 500ms Enter
+Sleep 1s
 
-Sleep 5s
-
-Type "fun-run validate fun-run.yaml # Let's validate the file..." Sleep 500ms Enter
+Type "fun-run validate fun-run.yaml" Sleep 500ms Enter
 
 Sleep 2s
 
-Type "fun-run run fun-run.yaml # Now...let's run the file..." Sleep 500ms Enter
+Ctrl+l
+Type "# Now...let's run the file..." Sleep 500ms Enter
+
+Sleep 1s
+
+Type "fun-run run fun-run.yaml" Sleep 500ms Enter
 
 Sleep 10s
 
