@@ -34,7 +34,7 @@ fun-run --help
 ```
 </summary>
 
-```sh
+```
 Fun Run is a tool for running multiple processes simultaneously.
 
 It is designed to be used in development environments where you want
