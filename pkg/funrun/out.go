@@ -18,10 +18,12 @@ func pickAColor(i int) termenv.ANSIColor {
 	case 2:
 		return termenv.ANSIBrightGreen
 	case 3:
-		return termenv.ANSIBrightRed
-	case 4:
 		return termenv.ANSIBrightMagenta
+	case 4:
+		return termenv.ANSIWhite
 	case 5:
+		return termenv.ANSIBrightRed
+	case 6:
 		return termenv.ANSIBrightYellow
 	default:
 		return termenv.ANSIBrightWhite
@@ -92,7 +94,7 @@ func (w *PrefixWriter) Logln(s string) error {
 }
 
 func (w *PrefixWriter) Logf(s string, a ...any) error {
-	p := w.Name + " | "
+	p := w.Name + " "
 	c := w.withColor(p + fmt.Sprintf(s, a...))
 	b := []byte(c)
 	_, err := w.Writer.Write(b)
@@ -108,6 +110,8 @@ func (w *PrefixWriter) Close() error {
 	return nil
 }
 
+// SyncWriter is a wrapper around an io.Writer that
+// is safe for concurrent use.
 type SyncWriter struct {
 	Writer io.Writer
 	sync.Mutex

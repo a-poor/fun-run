@@ -22,40 +22,50 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/a-poor/fun-run/pkg/funrun"
 	"github.com/spf13/cobra"
 )
 
-const (
-	appVersion = "v0.1.0" // The application's version
-)
+// runCmd represents the run command
+var runCmd = &cobra.Command{
+	Use:   "run {- | CONFIG_FILE}",
+	Short: "Start running your commands.",
+	Long: `Start running your commands based on the configuration file.
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:     "fun-run",
-	Short:   "A tool for running multiple processes simultaneously.",
-	Version: appVersion,
-	Long: `Fun Run is a tool for running multiple processes simultaneously.
-	
-It is designed to be used in development environments where you want
-to run multiple processes (e.g. a web server and a database server)
-simultaneously. It is similar to the 'docker-compose' tool, but for
-running shell commands rather than containers.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) {},
-}
+To read from stdin, use '-' as the CONFIG_FILE argument.`,
+	Args:    cobra.ExactArgs(1),
+	Aliases: []string{"r"},
+	Run: func(cmd *cobra.Command, args []string) {
+		// Get the config file (or read from stdin)...
+		var p string
+		if len(args) > 0 {
+			p = args[0]
+		}
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
-	}
+		// Load the config...
+		conf, err := funrun.ReadConf(p)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading config: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Create the process manager...
+		man := funrun.NewManager(conf)
+
+		// Get the context...
+		ctx := cmd.Context()
+
+		// Start the processes...
+		if err := man.Run(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running processes: %v\n", err)
+			os.Exit(1)
+		}
+	},
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolP("verbose", "V", false, "Help message for toggle")
+	rootCmd.AddCommand(runCmd)
 }

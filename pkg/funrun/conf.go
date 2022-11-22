@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -18,12 +19,16 @@ const (
 )
 
 type ProcConf struct {
-	Name    string        `json:"name,omitempty" yaml:"name,omitempty"`       // Name of the process
-	Cmd     string        `json:"cmd,omitempty" yaml:"cmd,omitempty"`         // Command to run (required)
-	Args    []string      `json:"args,omitempty" yaml:"args,omitempty"`       // Arguments to pass to the command
-	Envs    []string      `json:"envs,omitempty" yaml:"envs,omitempty"`       // Environment variables to set
-	Restart RestartPolicy `json:"restart,omitempty" yaml:"restart,omitempty"` // Restart policy for the command
-	WorkDir string        `json:"workdir,omitempty" yaml:"workdir,omitempty"` // Working directory for the command
+	Name      string            `json:"name,omitempty" yaml:"name,omitempty"`             // Name of the process
+	Cmd       string            `json:"cmd,omitempty" yaml:"cmd,omitempty"`               // Command to run (required unless Cmds is set)
+	Cmds      []string          `json:"cmds,omitempty" yaml:"cmds,omitempty"`             // Command to run (required unless Cmd is set)
+	Args      []string          `json:"args,omitempty" yaml:"args,omitempty"`             // Arguments to pass to the command
+	Envs      map[string]string `json:"envs,omitempty" yaml:"envs,omitempty"`             // Environment variables to set
+	Restart   RestartPolicy     `json:"restart,omitempty" yaml:"restart,omitempty"`       // Restart policy for the command
+	WorkDir   string            `json:"workdir,omitempty" yaml:"workdir,omitempty"`       // Working directory for the command
+	ClearEnvs bool              `json:"clear_envs,omitempty" yaml:"clear_envs,omitempty"` // Clear all environment variables before setting the ones in Envs
+
+	Timeout time.Duration `json:"timeout,omitempty" yaml:"timeout,omitempty"` // Timeout for the command
 }
 
 type Conf struct {
@@ -68,8 +73,13 @@ func ReadConf(path string) (*Conf, error) {
 		}
 
 		// Check that a command is set...
-		if p.Cmd == "" {
+		if p.Cmd == "" && len(p.Cmds) == 0 {
 			return nil, fmt.Errorf("missing command for process %d", i)
+		}
+
+		// Check that both commands aren't set...
+		if p.Cmd != "" && len(p.Cmds) != 0 {
+			return nil, fmt.Errorf("can't set both 'cmd' and 'cmds' for process %d", i)
 		}
 
 		// Set the default restart policy

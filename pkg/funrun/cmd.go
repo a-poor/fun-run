@@ -2,7 +2,10 @@ package funrun
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 	"sync"
 )
 
@@ -45,9 +48,115 @@ func (c *Command) SetOutputs(wout, werr *PrefixWriter) {
 	c.werr = werr
 }
 
+func (c *Command) makeEnvGetter() func(string) string {
+	return func(key string) string {
+		// Check for an environment variable set explicitly
+		v, ok := c.conf.Envs[key]
+		if ok {
+			return v
+		}
+
+		// Check if the rest of the environment is available
+		if c.conf.ClearEnvs {
+			return ""
+		}
+
+		// Otherwise, return the environment variable
+		return os.Getenv(key)
+	}
+}
+
+func (c *Command) fmtEnvSlice() []string {
+	// Create a slice for env vars...
+	var envs []string
+
+	// Add the rest of the environment if we're not clearing it...
+	if !c.conf.ClearEnvs {
+		for _, v := range os.Environ() {
+			envs = append(envs, v)
+		}
+	}
+
+	// Add the explicit env vars...
+	for k, v := range c.conf.Envs {
+		e := fmt.Sprintf("%s=%s", k, v)
+		envs = append(envs, e)
+	}
+
+	// Return the slice
+	return envs
+}
+
+func (c *Command) makeSingleCmd(ctx context.Context) *exec.Cmd {
+	envGetter := c.makeEnvGetter()
+
+	// Expand the command text
+	cmdTxt := os.Expand(c.conf.Cmd, envGetter)
+
+	// Expand the arguments
+	args := make([]string, len(c.conf.Args))
+	for i, arg := range c.conf.Args {
+		args[i] = os.Expand(arg, envGetter)
+	}
+
+	// Create the command...
+	return exec.CommandContext(
+		ctx,
+		cmdTxt,
+		args...,
+	)
+}
+
+func (c *Command) makeMultiCmd(ctx context.Context) *exec.Cmd {
+	// Get the env getter...
+	envGetter := c.makeEnvGetter()
+
+	// Expand the commands...
+	cmds := make([]string, len(c.conf.Cmds))
+	for i, cmd := range c.conf.Cmds {
+		cmds[i] = os.Expand(cmd, envGetter)
+	}
+
+	// Expand the arguments...
+	args := make([]string, len(c.conf.Args))
+	for i, arg := range c.conf.Args {
+		args[i] = os.Expand(arg, envGetter)
+	}
+
+	// Join the commands...
+	cmdTxt := strings.Join(cmds, "; ")
+
+	// Join together the command and the arguments...
+	allArgs := append(
+		[]string{"-c", cmdTxt},
+		c.conf.Args...,
+	)
+
+	// Create the command and return...
+	return exec.CommandContext(
+		ctx,
+		"sh",
+		allArgs...,
+	)
+}
+
 func (c *Command) createCmd(ctx context.Context) *exec.Cmd {
 	// Create the command with the context
-	cmd := exec.CommandContext(ctx, c.conf.Cmd, c.conf.Args...)
+	var cmd *exec.Cmd
+	if c.conf.Cmd == "" {
+		cmd = c.makeMultiCmd(ctx)
+	} else {
+		cmd = c.makeSingleCmd(ctx)
+	}
+
+	if c.conf.Cmd == "" {
+		cmdTxt := strings.Join(c.conf.Cmds, "; ")
+		args := append(
+			[]string{"-c", cmdTxt},
+			c.conf.Args...,
+		)
+		cmd = exec.CommandContext(ctx, "sh", args...)
+	}
 
 	// Set the working directory
 	cmd.Dir = c.conf.WorkDir
@@ -56,7 +165,7 @@ func (c *Command) createCmd(ctx context.Context) *exec.Cmd {
 	}
 
 	// Add the environment variables
-	cmd.Env = append(cmd.Env, c.conf.Envs...)
+	cmd.Env = c.fmtEnvSlice()
 
 	// Set the outputs
 	cmd.Stdout = c.wout
@@ -96,7 +205,7 @@ runloop:
 			break runloop
 
 		default:
-			c.wout.Logf("Starting command...\n")
+			c.wout.Logf("Starting...\n")
 
 			// Start the command
 			c.setStatus(CmdRunning)
@@ -111,7 +220,7 @@ runloop:
 
 				// Should we restart?
 				if c.conf.Restart == RestartOnFail || c.conf.Restart == RestartAlways {
-					c.wout.Logf("Restarting command\n")
+					c.wout.Logf("Restarting...\n")
 					continue runloop
 				}
 
@@ -131,12 +240,12 @@ runloop:
 
 			// Should we restart?
 			if c.conf.Restart == RestartAlways || (c.conf.Restart == RestartOnFail && c.err != nil) {
-				c.wout.Logf("Restarting command\n")
+				c.wout.Logf("Restarting...\n")
 				continue runloop
 			}
 
 			// Otherwise, break out of the loop
-			c.wout.Logf("Command finished\n")
+			c.wout.Logf("Finished\n")
 			break runloop
 		}
 	}

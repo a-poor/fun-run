@@ -1,0 +1,20 @@
+# fun-run.example.yaml
+# A sample fun-run config file.
+---
+procs:
+- cmd: sleep
+  args: [1]
+- cmd: date
+  name: print-the-date
+- cmds:
+  - echo starting...
+  - sleep 1
+  - echo continuing...
+  - sleep 2 
+  - echo done
+  restart: never
+- cmd: echo
+  args:
+  - "hello, ${NAME}!"
+  envs:
+    NAME: fun-run

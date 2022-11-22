@@ -2,5 +2,5 @@
 
 _created by Austin Poor_
 
-A simple way to execute multiple processes simultaneously.
+A simple CLI for executing multiple processes simultaneously.
 
